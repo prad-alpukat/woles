@@ -1,7 +1,8 @@
 from Wappalyzer import Wappalyzer, WebPage
 import requests
-
+import argparse
 import warnings
+
 warnings.filterwarnings("ignore")
 
 def detect_technologies(url):
@@ -44,12 +45,10 @@ def get_eol_status(tech, version):
     else: 
         return "EOL not found"
 
-
-
 def main(url):
     technologies = detect_technologies(url)
 
-    print("Detected Technologies:")
+    print(f"Detected Technologies for {url}:")
     for tech, info in technologies.items():
         print("------------------------------------")
         print(f"{tech} - {info['categories']}")
@@ -61,5 +60,12 @@ def main(url):
             print("No version information available")
 
 if __name__ == "__main__":
-    website_url = "https://neuversity.id"  # Ganti dengan URL yang ingin Anda cek
-    main(website_url)
+    # Setup argument parser
+    parser = argparse.ArgumentParser(description="Detect technologies and check their EOL status for a given URL.")
+    parser.add_argument('-u', '--url', type=str, required=True, help="URL of the website to check")
+    
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Call the main function with the provided URL
+    main(args.url)
