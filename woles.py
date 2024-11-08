@@ -18,30 +18,43 @@ def detect_technologies(url):
     except (requests.RequestException, Exception) as e:
         return str(e)
 
+def save_to_file(content, filename):
+    with open(filename, "w") as file:
+        file.write(content)
+
 def main():
     parser = argparse.ArgumentParser(description="Detect technologies used on a website.")
     parser.add_argument("-u", "--url", required=True, help="URL of the website to analyze")
     parser.add_argument("--json", action="store_true", help="Output in JSON format")
+    parser.add_argument("-o", "--output", help="File to save the output")
     args = parser.parse_args()
 
     # Detect technologies used on the given URL
     result = detect_technologies(args.url)
 
-    # Display output based on the selected format
+    # Determine output format and content
     if args.json:
         # JSON format output
-        print(json.dumps(result, indent=4))
+        output_content = json.dumps(result, indent=4)
     else:
         # Regular (default) output
-        print("Technologies detected:")
+        output_content = "Technologies detected:\n"
         if isinstance(result, dict):
             for tech, details in result.items():
-                print(f"- {tech}")
+                output_content += f"- {tech}\n"
                 for key, value in details.items():
-                    print(f"  {key.capitalize()}: {value}")
+                    output_content += f"  {key.capitalize()}: {value}\n"
         else:
-            # Print error message if result is not a dictionary
-            print(result)
+            # Include error message if result is not a dictionary
+            output_content = result
+
+    # Print the output content
+    print(output_content)
+
+    # Save to file if output file specified
+    if args.output:
+        save_to_file(output_content, args.output)
+        print(f"Output saved to {args.output}")
 
 if __name__ == "__main__":
     main()
