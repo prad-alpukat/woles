@@ -2,6 +2,7 @@ from Wappalyzer import Wappalyzer, WebPage
 import requests
 import argparse
 import warnings
+import json
 
 warnings.filterwarnings("ignore")
 
@@ -14,58 +15,33 @@ def detect_technologies(url):
         webpage = WebPage.new_from_response(response)
         technologies = wappalyzer.analyze_with_versions_and_categories(webpage)
         return technologies
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching the webpage: {e}")
-        return {}
+    except (requests.RequestException, Exception) as e:
+        return str(e)
 
-def check_eol(technology_name):
-    response = requests.get(f"https://endoflife.date/api/{technology_name.lower()}.json")
-    if response.status_code == 200:
-        eol_data = response.json()
-        return eol_data
-    else:
-        return None
-
-def get_eol_status(tech, version):
-    response = requests.get(f"https://endoflife.date/api/{tech.lower()}.json")
-    if response.status_code == 200:
-        eol_data = response.json()
-        # length cycle info
-        cycle = eol_data[0]['cycle']
-        cycle_dot = cycle.split('.')
-        cycle_len = len(cycle_dot)
-
-        # get same length cycle info from version
-        version_dot = version.split('.')
-        cycle_version = '.'.join(version_dot[:cycle_len])
-
-        response_eol = requests.get(f"https://endoflife.date/api/{tech.lower()}/{cycle_version}.json")
-        data_eol = response_eol.json()
-        return f"EOL {data_eol['eol']} | release date {data_eol['releaseDate']}"
-    else: 
-        return "EOL not found"
-
-def main(url):
-    technologies = detect_technologies(url)
-
-    print(f"Detected Technologies for {url}:")
-    for tech, info in technologies.items():
-        print("------------------------------------")
-        print(f"{tech} - {info['categories']}")
-        if len(info["versions"]): 
-            for version in info["versions"]:
-                eol = get_eol_status(tech, version)
-                print(f"{version} | {eol}")
-        else:
-            print("No version information available")
-
-if __name__ == "__main__":
-    # Setup argument parser
-    parser = argparse.ArgumentParser(description="Detect technologies and check their EOL status for a given URL.")
-    parser.add_argument('-u', '--url', type=str, required=True, help="URL of the website to check")
-    
-    # Parse the arguments
+def main():
+    parser = argparse.ArgumentParser(description="Detect technologies used on a website.")
+    parser.add_argument("-u", "--url", required=True, help="URL of the website to analyze")
+    parser.add_argument("--json", action="store_true", help="Output in JSON format")
     args = parser.parse_args()
 
-    # Call the main function with the provided URL
-    main(args.url)
+    # Detect technologies used on the given URL
+    result = detect_technologies(args.url)
+
+    # Display output based on the selected format
+    if args.json:
+        # JSON format output
+        print(json.dumps(result, indent=4))
+    else:
+        # Regular (default) output
+        print("Technologies detected:")
+        if isinstance(result, dict):
+            for tech, details in result.items():
+                print(f"- {tech}")
+                for key, value in details.items():
+                    print(f"  {key.capitalize()}: {value}")
+        else:
+            # Print error message if result is not a dictionary
+            print(result)
+
+if __name__ == "__main__":
+    main()
