@@ -9,10 +9,7 @@ warnings.filterwarnings("ignore")
 def detect_technologies(url):
     wappalyzer = Wappalyzer.latest()
     try:
-        # Send request without custom headers
-        response = requests.get(url, verify=False, timeout=15)
-        response.raise_for_status()  # Raise an error for bad status codes
-        webpage = WebPage.new_from_response(response)
+        webpage = WebPage.new_from_url(url)
         technologies = wappalyzer.analyze_with_versions_and_categories(webpage)
         return technologies
     except (requests.RequestException, Exception) as e:
@@ -22,6 +19,21 @@ def save_to_file(content, filename):
     with open(filename, "w") as file:
         file.write(content)
 
+def check_eol(tech, version):
+    url = f"https://endoflife.date/api/{tech}.json"
+    response = requests.get(url)
+    data = response.json()
+    if(type(data) == list):
+        len_cycle = len(data[0]['cycle'])
+        for item in data: 
+            if(item['cycle'] == version[:len_cycle]): 
+                if(type(item['eol']) == str): 
+                    return f"true({item['eol']})"
+                elif (type(item['eol']) == bool): 
+                    return f"{item['eol']}"
+    else: 
+        return "Product not found"
+
 def main():
     parser = argparse.ArgumentParser(description="Detect technologies used on a website.")
     parser.add_argument("-u", "--url", required=True, help="URL of the website to analyze")
@@ -29,29 +41,38 @@ def main():
     parser.add_argument("-o", "--output", help="File to save the output")
     args = parser.parse_args()
 
-    # Detect technologies used on the given URL
     result = detect_technologies(args.url)
+    
+    for tech, details in result.items():
+        result[tech] = {}
+        for key, value in details.items():
+            if(key == 'versions' and len(value) == 0): 
+                result[tech][key] = "N/A"
+            else: 
+                result[tech][key] = value
 
-    # Determine output format and content
     if args.json:
-        # JSON format output
         output_content = json.dumps(result, indent=4)
     else:
-        # Regular (default) output
-        output_content = "Technologies detected:\n"
+        output_content = f"Tech + EOL Info\nWebsite: {args.url}\n-------------------------"
         if isinstance(result, dict):
-            for tech, details in result.items():
-                output_content += f"- {tech}\n"
+            for i, (tech, details) in enumerate(result.items()):
+                output_content += f"\n{i+1}. {tech}\n"
+
                 for key, value in details.items():
-                    output_content += f"  {key.capitalize()}: {value}\n"
+                    if key == 'versions' and value != "N/A":
+                        # loop through versions
+                        for i, version in enumerate(value):
+                            output_content += f"   - {key.capitalize()}: {version}\n"
+                            output_content += f"     EOL: {check_eol(tech, version)}\n"
+                    elif key == 'versions' and value == "N/A":
+                        output_content += f"   - {key.capitalize()}: {value}\n"
+
         else:
-            # Include error message if result is not a dictionary
             output_content = result
 
-    # Print the output content
     print(output_content)
 
-    # Save to file if output file specified
     if args.output:
         save_to_file(output_content, args.output)
         print(f"Output saved to {args.output}")
